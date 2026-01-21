@@ -55,4 +55,4 @@ Este proyecto procesa frames en tiempo real para dirigir miles de puntos de luz 
 1. Clona el repositorio:
 
    ```bash
-   git clone https://github.com/OrangyDev/bad-apple-kinetic.git
+   git clone https://github.com/OrangyDev/Bad-Apple-Particle-Physics.git
