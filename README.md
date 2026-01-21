@@ -44,7 +44,7 @@ Una experiencia visual interactiva que transforma el icónico video musical "Bad
 
   Clona el repositorio:
 
-  git clone [https://github.com/OrangyDev/bad-apple-kinetic.git](https://github.com/OrangyDev/bad-apple-kinetic.git)
+  ''git clone [https://github.com/OrangyDev/bad-apple-kinetic.git](https://github.com/OrangyDev/bad-apple-kinetic.git''
 
 
 Abre index.html en cualquier navegador moderno.
