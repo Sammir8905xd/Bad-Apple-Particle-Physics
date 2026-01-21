@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Apple Kinetic Particles</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #050505;
+            color: #fff;
+            margin: 0;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(20, 20, 20, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="absolute top-8 left-8 z-10">
+        <h1 class="text-2xl font-black tracking-tighter uppercase opacity-50">Bad Apple // Kinetic</h1>
+    </div>
+
+    <canvas id="main-canvas"></canvas>
+    
+    <div class="controls shadow-2xl">
+        <button id="play-btn" class="bg-white text-black font-bold py-2 px-6 rounded-lg hover:scale-105 transition-transform">
+            COMENZAR EXPERIENCIA
+        </button>
+        <div class="flex flex-col">
+            <label class="text-[10px] uppercase tracking-widest text-gray-400 mb-1">Sensibilidad</label>
+            <input type="range" id="threshold" min="50" max="200" value="128" class="accent-white">
+        </div>
+        <div class="flex flex-col">
+            <label class="text-[10px] uppercase tracking-widest text-gray-400 mb-1">Densidad</label>
+            <input type="range" id="density" min="2" max="10" value="4" class="accent-white">
+        </div>
+    </div>
+
+    <video id="video-source" class="hidden" crossorigin="anonymous" loop playsinline>
+        <source src="https://files.catbox.moe/0qv0t0.mp4" type="video/mp4">
+    </video>
+
+    <script>
+        const video = document.getElementById('video-source');
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const playBtn = document.getElementById('play-btn');
+        const thresholdInput = document.getElementById('threshold');
+        const densityInput = document.getElementById('density');
+
+        // Canvas oculto para procesar frames
+        const procCanvas = document.createElement('canvas');
+        const procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+
+        let particles = [];
+        let animationId;
+        let particleDensity = 4;
+
+        class Particle {
+            constructor(x, y) {
+                this.originX = x;
+                this.originY = y;
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = 0;
+                this.vy = 0;
+                this.size = 1.5;
+                this.ease = 0.1 + Math.random() * 0.1;
+                this.friction = 0.9;
+                this.active = false;
+            }
+
+            update(targetX, targetY, isVisible) {
+                if (isVisible) {
+                    this.active = true;
+                    // Atracción al punto de la silueta
+                    let dx = targetX - this.x;
+                    let dy = targetY - this.y;
+                    this.vx += dx * this.ease;
+                    this.vy += dy * this.ease;
+                } else {
+                    // Si no es parte de la silueta, flota o se dispersa suavemente
+                    this.active = false;
+                    this.vx += (Math.random() - 0.5) * 0.5;
+                    this.vy += (Math.random() - 0.5) * 0.5;
+                }
+
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw() {
+                if (this.active) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(this.x, this.y, this.size, this.size);
+                } else {
+                    // Partículas inactivas son apenas visibles
+                    ctx.fillStyle = '#222222';
+                    ctx.fillRect(this.x, this.y, 0.5, 0.5);
+                }
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            particleDensity = parseInt(densityInput.value);
+            // Pre-creamos una piscina de partículas
+            for (let i = 0; i < 15000; i++) {
+                particles.push(new Particle(0, 0));
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            procCanvas.width = 160; // Baja resolución para procesamiento rápido
+            procCanvas.height = 120;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        initParticles();
+
+        function render() {
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!video.paused) {
+                procCtx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+                const pixels = procCtx.getImageData(0, 0, procCanvas.width, procCanvas.height).data;
+                const threshold = parseInt(thresholdInput.value);
+                
+                let pIndex = 0;
+                const step = particleDensity;
+                const scaleX = canvas.width / procCanvas.width;
+                const scaleY = canvas.height / procCanvas.height;
+
+                for (let y = 0; y < procCanvas.height; y += step) {
+                    for (let x = 0; x < procCanvas.width; x += step) {
+                        const i = (y * procCanvas.width + x) * 4;
+                        const brightness = pixels[i]; // El video es BN, basta con un canal
+
+                        if (pIndex < particles.length) {
+                            const isVisible = brightness > threshold;
+                            particles[pIndex].update(x * scaleX, y * scaleY, isVisible);
+                            particles[pIndex].draw();
+                            pIndex++;
+                        }
+                    }
+                }
+
+                // Dibujar el resto de partículas como "ruido" de fondo
+                for(let i = pIndex; i < particles.length; i++) {
+                    particles[i].update(0, 0, false);
+                    if (i % 5 === 0) particles[i].draw(); 
+                }
+            }
+
+            animationId = requestAnimationFrame(render);
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (video.paused) {
+                video.play();
+                playBtn.textContent = 'PAUSAR';
+                if (!animationId) render();
+            } else {
+                video.pause();
+                playBtn.textContent = 'REANUDAR';
+            }
+        });
+
+        densityInput.addEventListener('change', initParticles);
+    </script>
+</body>
+</html>
